@@ -4,7 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev-all.cjs",
+    "dev:front": "vite",
+    "dev:backend": "npm --prefix backend start",
+    "install:backend": "npm --prefix backend install",
+    "migrate:backend": "npm --prefix backend run migrate",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
