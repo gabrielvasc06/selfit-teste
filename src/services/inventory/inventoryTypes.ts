@@ -122,12 +122,18 @@ export type Equipamento = {
 
 export type EquipamentoInput = {
   unidade_id: string;
+  unidade_nome?: string;
   categoria: EquipamentoCategoria;
   nome: string;
   asset_tag?: string;
   eletromidia_id?: string;
   marca?: string;
   modelo?: string;
+  numero_serie?: string;
+  placa_patrimonio?: string;
+  localizacao?: string;
+  endereco_ip?: string;
+  mac_address?: string;
   data_garantia?: string;
   status: EquipamentoStatus;
   observacoes?: string;
@@ -204,6 +210,7 @@ export interface InventorySnapshot {
 
 export const categoriaLabels: Record<string, string> = {
   TV: 'Smart TV / Display',
+  CAMERAS: 'Camera / CFTV',
   totem: 'Totem',
   catraca: 'Catraca',
   leitor_facial: 'Leitor Facial',

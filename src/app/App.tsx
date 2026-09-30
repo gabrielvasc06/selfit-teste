@@ -1,191 +1,134 @@
-import { useEffect, useState } from 'react';
-import { LayoutGrid } from 'lucide-react';
-import { InventoryProvider } from '@/providers/InventoryProvider';
-import { ModuloProvider } from '@/providers/ModuloProvider';
-import { getModuleBadge, pageMeta, validPages } from '@/routes/pageRegistry';
-import type { ModuloTipo } from '@/services/inventory/inventoryTypes';
-import { Sidebar, type PageId } from '@/components/layout/Sidebar';
-import { CadastrarCameraPage } from '@/pages/CadastrarCameraPage';
-import { CadastrarEquipamentoPage } from '@/pages/CadastrarEquipamentoPage';
-import { CadastrarPage } from '@/pages/CadastrarPage';
-import { CadastrarUnidadePage } from '@/pages/CadastrarUnidadePage';
-import { CamerasPage } from '@/pages/CamerasPage';
-import { ConsultarPage } from '@/pages/ConsultarPage';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { EquipamentosPage } from '@/pages/EquipamentosPage';
-import { GarantiasPage } from '@/pages/GarantiasPage';
-import { HistoricoPage } from '@/pages/HistoricoPage';
-import { LoginScreen } from '@/pages/LoginScreen';
-import { ManutencoesPage } from '@/pages/ManutencoesPage';
-import { ModuleSelectScreen } from '@/pages/ModuleSelectScreen';
-import { RegiaoDetailPage } from '@/pages/RegiaoDetailPage';
-import { RegiaoPage } from '@/pages/RegiaoPage';
-import { UnidadeDetailPage } from '@/pages/UnidadeDetailPage';
+import { Database, Plus, Search, ShieldCheck, UserPlus, Wrench } from 'lucide-react';
+import { CompactList } from '@/features/selfit-dashboard/components/CompactList';
+import { DashboardHeader } from '@/features/selfit-dashboard/components/DashboardHeader';
+import { EditEquipmentModal } from '@/features/selfit-dashboard/components/EditEquipmentModal';
+import { EquipmentForm } from '@/features/selfit-dashboard/components/EquipmentForm';
+import { EquipmentTable } from '@/features/selfit-dashboard/components/EquipmentTable';
+import { Field } from '@/features/selfit-dashboard/components/Field';
+import { LoginView } from '@/features/selfit-dashboard/components/LoginView';
+import { MetricsGrid } from '@/features/selfit-dashboard/components/Metric';
+import { Panel } from '@/features/selfit-dashboard/components/Panel';
+import { Toast } from '@/features/selfit-dashboard/components/Toast';
+import { equipmentCategories, fieldClass } from '@/features/selfit-dashboard/constants';
+import { equipmentFormFromEquipment, useSelfitDashboard } from '@/features/selfit-dashboard/useSelfitDashboard';
+import { formatDate, onlyDigits } from '@/features/selfit-dashboard/utils';
 
-function readStoredModule(): ModuloTipo | null {
-  const stored = localStorage.getItem('selfit.currentModule');
-  return stored === 'tvs' || stored === 'equipamentos' || stored === 'cameras' ? stored : null;
-}
+export default function App() {
+  const dashboard = useSelfitDashboard();
 
-function readStoredPage(): PageId {
-  const stored = localStorage.getItem('selfit.page');
-  return validPages.includes(stored as PageId) ? stored as PageId : 'dashboard';
-}
-
-function readStoredDrill(): { type: string; id: string } | null {
-  const stored = localStorage.getItem('selfit.drill');
-  if (!stored) return null;
-
-  try {
-    const parsed = JSON.parse(stored);
-    return typeof parsed?.type === 'string' && typeof parsed?.id === 'string' ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function AppShell() {
-  const [authed, setAuthed] = useState(() => localStorage.getItem('selfit.authenticated') === 'true');
-  const [userName, setUserName] = useState(() => localStorage.getItem('selfit.userName') ?? '');
-  const [currentModule, setCurrentModule] = useState<ModuloTipo | null>(readStoredModule);
-  const [page, setPage] = useState<PageId>(readStoredPage);
-  const [previousPage, setPreviousPage] = useState<PageId>('dashboard');
-  const [drill, setDrill] = useState<{ type: string; id: string } | null>(readStoredDrill);
-
-  useEffect(() => {
-    localStorage.setItem('selfit.authenticated', String(authed));
-  }, [authed]);
-
-  useEffect(() => {
-    if (userName) localStorage.setItem('selfit.userName', userName);
-    else localStorage.removeItem('selfit.userName');
-  }, [userName]);
-
-  useEffect(() => {
-    if (currentModule) localStorage.setItem('selfit.currentModule', currentModule);
-    else localStorage.removeItem('selfit.currentModule');
-  }, [currentModule]);
-
-  useEffect(() => {
-    localStorage.setItem('selfit.page', page);
-  }, [page]);
-
-  useEffect(() => {
-    if (drill) localStorage.setItem('selfit.drill', JSON.stringify(drill));
-    else localStorage.removeItem('selfit.drill');
-  }, [drill]);
-
-  const handleLogout = () => {
-    setAuthed(false);
-    setCurrentModule(null);
-    setUserName('');
-    setPage('dashboard');
-    setDrill(null);
-    localStorage.removeItem('selfit.authenticated');
-    localStorage.removeItem('selfit.userName');
-    localStorage.removeItem('selfit.currentModule');
-    localStorage.removeItem('selfit.page');
-    localStorage.removeItem('selfit.drill');
-  };
-
-  if (!authed) {
-    return <LoginScreen onLogin={(name) => { setUserName(name || 'admin'); setAuthed(true); }} />;
-  }
-
-  if (!currentModule) {
+  if (!dashboard.token) {
     return (
-      <ModuleSelectScreen
-        userName={userName || 'admin'}
-        onSelectModulo={(modulo) => {
-          setCurrentModule(modulo);
-          setPage('dashboard');
-          setDrill(null);
-        }}
-        onLogout={handleLogout}
+      <LoginView
+        login={dashboard.login}
+        loading={dashboard.loading}
+        toast={dashboard.toast}
+        setLogin={dashboard.setLogin}
+        onSubmit={dashboard.handleLogin}
       />
     );
   }
 
-  const meta = pageMeta[currentModule][page] || { title: 'Sistema', subtitle: 'Painel Selfit' };
-  const title = drill?.type === 'historico'
-    ? 'Historico de Alteracoes'
-    : drill?.type === 'unidade'
-      ? 'Detalhes da Unidade'
-      : drill?.type === 'regiao-detail'
-        ? 'Detalhes da Regiao'
-        : meta.title;
-  const subtitle = drill?.type ? 'Dados separados pelo modulo selecionado' : meta.subtitle;
-
-  const navigate = (target: PageId) => {
-    setPreviousPage(page);
-    setDrill(null);
-    setPage(target);
-  };
-
-  const navigateBack = () => {
-    setDrill(null);
-    setPage(previousPage === page ? 'dashboard' : previousPage);
-  };
-
   return (
-    <ModuloProvider modulo={currentModule} setModulo={setCurrentModule}>
-      <div className="min-h-screen bg-slate-50">
-        <Sidebar
-          current={page}
-          onNavigate={navigate}
-          onLogout={handleLogout}
-          userName={userName || 'admin'}
-          modulo={currentModule}
-        />
+    <main className="min-h-screen bg-slate-100">
+      <DashboardHeader
+        userName={dashboard.userName}
+        loading={dashboard.loading}
+        onRefresh={dashboard.refreshAll}
+        onLogout={dashboard.handleLogout}
+      />
 
-        <div className="lg:pl-72">
-          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur-md lg:px-8">
-            <div className="ml-10 lg:ml-0">
-              <div className="mb-1">
-                <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                  {getModuleBadge(currentModule)}
-                </span>
-              </div>
-              <h2 className="font-display text-lg font-bold text-slate-900">{title}</h2>
-              <p className="text-sm text-slate-500">{subtitle}</p>
+      <div className="mx-auto max-w-7xl space-y-6 px-5 py-6">
+        {dashboard.toast && <Toast toast={dashboard.toast} />}
+
+        <MetricsGrid stats={dashboard.stats} />
+
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <Panel title="Consultar e Gerenciar Equipamentos" icon={<Search className="h-5 w-5" />}>
+            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_14rem]">
+              <input
+                value={dashboard.search}
+                onChange={(event) => dashboard.setSearch(event.target.value)}
+                placeholder="Buscar por unidade, patrimonio, serie, nome..."
+                className={fieldClass}
+              />
+              <select value={dashboard.categoryFilter} onChange={(event) => dashboard.setCategoryFilter(event.target.value)} className={fieldClass}>
+                <option value="TODAS">Todas categorias</option>
+                {equipmentCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+              </select>
             </div>
+            <EquipmentTable
+              equipments={dashboard.visibleEquipments}
+              onEdit={dashboard.setEditing}
+              onDelete={dashboard.deleteEquipment}
+            />
+          </Panel>
 
-            <button
-              onClick={() => setCurrentModule(null)}
-              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-            >
-              <LayoutGrid className="h-4 w-4 text-slate-500" />
-              <span className="hidden sm:inline">Trocar Modulo</span>
-            </button>
-          </header>
+          <div className="space-y-6">
+            <Panel title="Cadastrar Unidade" icon={<Plus className="h-5 w-5" />}>
+              <form onSubmit={dashboard.createUnit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Nome" value={dashboard.unitForm.nome} onChange={(value) => dashboard.setUnitForm((current) => ({ ...current, nome: value }))} required />
+                <Field label="CNPJ" value={dashboard.unitForm.cnpj} onChange={(value) => dashboard.setUnitForm((current) => ({ ...current, cnpj: onlyDigits(value) }))} required placeholder="14 digitos" />
+                <Field label="CEP" value={dashboard.unitForm.cep} onChange={(value) => dashboard.setUnitForm((current) => ({ ...current, cep: onlyDigits(value) }))} required placeholder="8 digitos" />
+                <Field label="UF" value={dashboard.unitForm.uf} onChange={(value) => dashboard.setUnitForm((current) => ({ ...current, uf: value.toUpperCase().slice(0, 2) }))} required />
+                <Field label="Bairro" value={dashboard.unitForm.bairro} onChange={(value) => dashboard.setUnitForm((current) => ({ ...current, bairro: value }))} required />
+                <Field label="Rua" value={dashboard.unitForm.rua} onChange={(value) => dashboard.setUnitForm((current) => ({ ...current, rua: value }))} required />
+                <div className="sm:col-span-2">
+                  <Field label="Numero" value={dashboard.unitForm.numero} onChange={(value) => dashboard.setUnitForm((current) => ({ ...current, numero: value }))} required />
+                </div>
+                <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 sm:col-span-2">
+                  <Plus className="h-4 w-4" /> Cadastrar unidade
+                </button>
+              </form>
+            </Panel>
 
-          <main className="p-6 lg:p-8">
-            <div key={`${currentModule}-${page}-${drill?.type ?? ''}-${drill?.id ?? ''}`} className="animate-fade-in">
-              {drill?.type === 'historico' && <HistoricoPage onBack={() => setDrill(null)} />}
-              {drill?.type === 'unidade' && <UnidadeDetailPage unidadeId={drill.id} onBack={() => setDrill(null)} />}
-              {drill?.type === 'regiao-detail' && <RegiaoDetailPage regiaoId={drill.id} onBack={() => setDrill(null)} />}
+            <Panel title="Cadastrar Equipamento" icon={<Database className="h-5 w-5" />}>
+              <EquipmentForm
+                value={dashboard.equipmentForm}
+                unidades={dashboard.unidades}
+                onChange={dashboard.setEquipmentForm}
+                onSubmit={dashboard.createEquipment}
+              />
+            </Panel>
+          </div>
+        </section>
 
-              {!drill && page === 'dashboard' && <DashboardPage />}
-              {!drill && page === 'consultar' && <ConsultarPage onOpenUnidade={(id) => setDrill({ type: 'unidade', id })} />}
-              {!drill && page === 'cadastrar' && <CadastrarPage />}
-              {!drill && page === 'cadastrar_unidade' && <CadastrarUnidadePage />}
-              {!drill && page === 'cadastrar_equipamento' && (currentModule === 'cameras' ? <CadastrarCameraPage /> : <CadastrarEquipamentoPage />)}
-              {!drill && page === 'equipamentos' && (currentModule === 'cameras' ? <CamerasPage /> : <EquipamentosPage />)}
-              {!drill && page === 'garantias' && <GarantiasPage onBack={navigateBack} />}
-              {!drill && page === 'manutencoes' && <ManutencoesPage onBack={navigateBack} />}
-              {!drill && page === 'regiao' && <RegiaoPage onOpenRegiao={(id) => setDrill({ type: 'regiao-detail', id })} />}
-            </div>
-          </main>
-        </div>
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <Panel title="Garantias" icon={<ShieldCheck className="h-5 w-5" />}>
+            <CompactList
+              items={dashboard.warranties}
+              empty="Nenhuma garantia vigente retornada."
+              detail={(item) => `${formatDate(item.data_garantia)} | ${item.unidade_nome}`}
+            />
+          </Panel>
+          <Panel title="Manutencoes Abertas" icon={<Wrench className="h-5 w-5" />}>
+            <CompactList
+              items={dashboard.maintenances}
+              empty="Nenhuma manutencao aberta retornada."
+              detail={(item) => `${item.descricao_manutencao || 'Sem descricao'} | ${item.unidade_nome}`}
+            />
+          </Panel>
+          <Panel title="Cadastrar Usuario" icon={<UserPlus className="h-5 w-5" />}>
+            <form onSubmit={dashboard.createUser} className="space-y-3">
+              <Field label="Usuario" value={dashboard.registerUser.usuario} onChange={(value) => dashboard.setRegisterUser((current) => ({ ...current, usuario: value }))} required />
+              <Field label="Senha" type="password" value={dashboard.registerUser.senha} onChange={(value) => dashboard.setRegisterUser((current) => ({ ...current, senha: value }))} required />
+              <button className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
+                <UserPlus className="h-4 w-4" /> Cadastrar usuario
+              </button>
+            </form>
+          </Panel>
+        </section>
       </div>
-    </ModuloProvider>
-  );
-}
 
-export default function App() {
-  return (
-    <InventoryProvider>
-      <AppShell />
-    </InventoryProvider>
+      {dashboard.editing && (
+        <EditEquipmentModal
+          equipmentId={dashboard.editing.id}
+          formValue={equipmentFormFromEquipment(dashboard.editing)}
+          unidades={dashboard.unidades}
+          onChange={(value) => dashboard.setEditing((current) => current ? { ...current, ...value } : current)}
+          onSubmit={dashboard.updateEquipment}
+          onClose={() => dashboard.setEditing(null)}
+        />
+      )}
+    </main>
   );
 }

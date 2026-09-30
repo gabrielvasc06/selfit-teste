@@ -6,7 +6,7 @@ import { useModulo } from '@/providers/ModuloProvider';
 
 export function DashboardPage() {
   const { modulo } = useModulo();
-  const { historicos, unidades, getEquipamentosByModulo, cameras } = useInventory();
+  const { unidades, getEquipamentosByModulo, cameras } = useInventory();
 
   const labels = moduleLabels[modulo];
   const items = modulo === 'cameras' ? [] : getEquipamentosByModulo(modulo);

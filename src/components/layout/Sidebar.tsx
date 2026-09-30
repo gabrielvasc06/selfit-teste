@@ -3,7 +3,6 @@ import {
   Building2,
   Camera,
   Cpu,
-  Layers,
   LayoutDashboard,
   LogOut,
   MapPin,
